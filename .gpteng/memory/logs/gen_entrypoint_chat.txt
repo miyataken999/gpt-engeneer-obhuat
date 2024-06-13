@@ -1,0 +1,149 @@
+
+2024-06-13T05:44:59.541833
+================================ System Message ================================
+
+You will get information about a codebase that is currently on disk in the current folder.
+The user will ask you to write a script that runs the code in a specific way.
+You will answer with code blocks that include all the necessary terminal commands.
+Do not install globally. Do not use sudo.
+Do not explain the code, just give the commands.
+Do not use placeholders, use example values (like . for a folder argument) if necessary.
+
+
+================================ Human Message =================================
+
+
+        Make a unix script that
+        a) installs dependencies
+        b) runs all necessary parts of the codebase (in parallel if necessary)
+        
+Information about the codebase:
+
+```
+File: requirements.txt
+1 Flask==2.0.1
+2 flask_sqlalchemy==2.5.1
+3 mysql-connector-python==8.0.23
+4 google-cloud-vision==2.5.1
+5 firebase-admin==5.2.0
+
+File: app/__init__.py
+1 from flask import Flask
+2 from flask_sqlalchemy import SQLAlchemy
+3 from flask_marshmallow import Marshmallow
+4 from google.cloud import vision
+5 from firebase_admin import credentials, firestore
+6 
+7 app = Flask(__name__)
+8 app.config["SQLALCHEMY_DATABASE_URI"] = "mysql://user:password@localhost/google_lens_db"
+9 db = SQLAlchemy(app)
+10 ma = Marshmallow(app)
+11 
+12 vision_client = vision.ImageAnnotatorClient()
+13 firebase_credentials = credentials.Certificate("firebase_credentials.json")
+14 firebase_app = firebase_admin.initialize_app(firebase_credentials)
+15 firebase_db = firestore.client()
+
+File: app/models.py
+1 from app import db
+2 
+3 class Product(db.Model):
+4     id = db.Column(db.Integer, primary_key=True)
+5     name = db.Column(db.String(100), nullable=False)
+6     image_url = db.Column(db.String(200), nullable=False)
+7     tags = db.Column(db.String(200), nullable=True)
+8 
+9     def __repr__(self):
+10         return f"Product('{self.name}', '{self.image_url}')"
+11 
+12 class Log(db.Model):
+13     id = db.Column(db.Integer, primary_key=True)
+14     timestamp = db.Column(db.DateTime, nullable=False)
+15     message = db.Column(db.String(200), nullable=False)
+16 
+17     def __repr__(self):
+18         return f"Log('{self.timestamp}', '{self.message}')"
+
+File: app/routes.py
+1 from flask import request, jsonify
+2 from app import app, db, vision_client, firebase_db
+3 from app.models import Product, Log
+4 
+5 @app.route("/register_product", methods=["POST"])
+6 def register_product():
+7     data = request.get_json()
+8     product = Product(name=data["name"], image_url=data["image_url"])
+9     db.session.add(product)
+10     db.session.commit()
+11     return jsonify({"message": "Product registered successfully"})
+12 
+13 @app.route("/search_products", methods=["GET"])
+14 def search_products():
+15     query = request.args.get("query")
+16     products = Product.query.filter(Product.name.like("%" + query + "%")).all()
+17     return jsonify([{"id": p.id, "name": p.name, "image_url": p.image_url} for p in products])
+18 
+19 @app.route("/analyze_image", methods=["POST"])
+20 def analyze_image():
+21     data = request.get_json()
+22     image_data = data["image_data"]
+23     response = vision_client.annotate_image(image_data)
+24     labels = [label.description for label in response.label_annotations]
+25     return jsonify({"labels": labels})
+26 
+27 @app.route("/log", methods=["POST"])
+28 def log():
+29     data = request.get_json()
+30     log = Log(timestamp=data["timestamp"], message=data["message"])
+31     db.session.add(log)
+32     db.session.commit()
+33     return jsonify({"message": "Log saved successfully"})
+
+File: app/firebase_credentials.json
+1 {
+2   "type": "service_account",
+3   "project_id": "your-project-id",
+4   "private_key_id": "your-private-key-id",
+5   "private_key": "your-private-key",
+6   "client_email": "your-client-email",
+7   "client_id": "your-client-id",
+8   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+9   "token_uri": "https://oauth2.googleapis.com/token",
+10   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+11   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-<your-project-id>%40your-project-id.iam.gserviceaccount.com"
+12 }
+
+File: app/templates/index.html
+1 <!DOCTYPE html>
+2 <html>
+3   <head>
+4     <title>Google Lens App</title>
+5   </head>
+6   <body>
+7     <h1>Google Lens App</h1>
+8     <form action="/register_product" method="post">
+9       <label for="name">Product Name:</label>
+10       <input type="text" id="name" name="name"><br><br>
+11       <label for="image_url">Image URL:</label>
+12       <input type="text" id="image_url" name="image_url"><br><br>
+13       <input type="submit" value="Register Product">
+14     </form>
+15   </body>
+16 </html>
+
+```
+
+================================== Ai Message ==================================
+
+Here is the Unix script that installs dependencies and runs the codebase:
+
+```bash
+#!/bin/bash
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the Flask app
+export FLASK_APP=app
+flask run --host=0.0.0.0 --port=5000
+```
